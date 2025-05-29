@@ -74,10 +74,6 @@ class UniversalScraper
 
             $html = $response->body();
 
-            // DEBUG: Save raw HTML to storage/logs for inspection
-            \Log::debug('UniversalScraper raw HTML saved to storage/logs/universal_scraper_debug.html');
-            \Illuminate\Support\Facades\Storage::disk('local')->put('logs/universal_scraper_debug.html', $html);
-
             // Extract JSON scripts for social/contact data (optional)
             $jsonSocialLinks = [];
             $jsonContactLinks = [];
