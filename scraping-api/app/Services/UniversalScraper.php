@@ -16,31 +16,35 @@ class UniversalScraper
         try {
             $data = $this->crawlUrl($url);
 
-            $scrapedData = ScrapedData::create([
-                'url' => $url,
-                'platform' => $this->detectPlatform($url),
-                'content' => $data,
-                'metadata' => [
-                    'crawled_at' => now(),
-                    'platform' => $this->detectPlatform($url)
-                ],
-                'status' => 'completed'
-            ]);
+            $scrapedData = ScrapedData::updateOrCreate(
+                ['url' => $url],
+                [
+                    'platform' => $this->detectPlatform($url),
+                    'content' => $data,
+                    'metadata' => [
+                        'crawled_at' => now(),
+                        'platform' => $this->detectPlatform($url)
+                    ],
+                    'status' => 'completed'
+                ]
+            );
 
             return $scrapedData;
         } catch (\Exception $e) {
-            $scrapedData = ScrapedData::create([
-                'url' => $url,
-                'platform' => $this->detectPlatform($url),
-                'content' => [
-                    'error' => $e->getMessage()
-                ],
-                'metadata' => [
-                    'crawled_at' => now(),
-                    'platform' => $this->detectPlatform($url)
-                ],
-                'status' => 'failed'
-            ]);
+            $scrapedData = ScrapedData::updateOrCreate(
+                ['url' => $url],
+                [
+                    'platform' => $this->detectPlatform($url),
+                    'content' => [
+                        'error' => $e->getMessage()
+                    ],
+                    'metadata' => [
+                        'crawled_at' => now(),
+                        'platform' => $this->detectPlatform($url)
+                    ],
+                    'status' => 'failed'
+                ]
+            );
 
             throw $e;
         }
