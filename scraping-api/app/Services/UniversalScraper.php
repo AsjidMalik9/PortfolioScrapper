@@ -56,6 +56,7 @@ class UniversalScraper
 
         $data = [
             'title' => '',
+            'description' => '',
             'content' => [],
             'images' => [],
             'videos' => [],
@@ -108,6 +109,51 @@ class UniversalScraper
 
             $data['title'] = $crawler->filter('title')->count() ? $crawler->filter('title')->text() : '';
 
+            $metadata = $this->extractMetadata($crawler);
+            $data['metadata'] = $metadata;
+            // Extract description from meta tags
+            $description = '';
+            if (isset($metadata['description']) && !empty($metadata['description'])) {
+                $description = $metadata['description'];
+            } elseif (isset($metadata['og:description']) && !empty($metadata['og:description'])) {
+                $description = $metadata['og:description'];
+            } else {
+                // Try to find a description in the visible content
+                $descNode = $crawler->filter('[class], [id]');
+                if ($descNode->count()) {
+                    foreach ($descNode as $node) {
+                        $class = $node->getAttribute('class') ?? '';
+                        $id = $node->getAttribute('id') ?? '';
+                        $haystack = strtolower($class . ' ' . $id);
+                        if (
+                            strpos($haystack, 'description') !== false ||
+                            strpos($haystack, 'about') !== false ||
+                            strpos($haystack, 'summary') !== false
+                        ) {
+                            $text = trim($node->textContent);
+                            if (mb_strlen($text) > 40) {
+                                $description = $text;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // Fallback: first large <p> or <span>
+                if (empty($description)) {
+                    $firstPara = $crawler->filter('p, span');
+                    if ($firstPara->count()) {
+                        foreach ($firstPara as $node) {
+                            $text = trim($node->textContent);
+                            if (mb_strlen($text) > 40) {
+                                $description = $text;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            $data['description'] = $description;
+
             $data['content'] = $this->extractContent($crawler);
             if (!empty($jsonContents)) {
                 $data['content'] = array_merge($data['content'], ...$jsonContents);
@@ -116,7 +162,6 @@ class UniversalScraper
             $data['images'] = $this->extractImages($crawler);
             $data['videos'] = $this->extractVideos($crawler);
             $data['links'] = $this->extractLinks($crawler);
-            $data['metadata'] = $this->extractMetadata($crawler);
 
             $data['contact_info'] = $this->extractContactInfo($crawler);
             if (!empty($jsonContactLinks)) {
