@@ -70,6 +70,10 @@ class UniversalScraper
 
             $html = $response->body();
 
+            // DEBUG: Save raw HTML to storage/logs for inspection
+            \Log::debug('UniversalScraper raw HTML saved to storage/logs/universal_scraper_debug.html');
+            \Illuminate\Support\Facades\Storage::disk('local')->put('logs/universal_scraper_debug.html', $html);
+
             // Extract JSON scripts for social/contact data (optional)
             $jsonSocialLinks = [];
             $jsonContactLinks = [];
@@ -246,17 +250,63 @@ class UniversalScraper
     {
         $videos = [];
 
-        $crawler->filter('video, iframe')->each(function (DomCrawler $node) use (&$videos) {
+        // Extract <video> tags
+        $crawler->filter('video')->each(function (DomCrawler $node) use (&$videos) {
             $src = $node->attr('src');
             if (empty($src)) {
                 return;
             }
             $videos[] = [
-                'type' => $node->nodeName(),
+                'type' => 'video',
                 'src' => $this->makeAbsoluteUrl($src),
                 'poster' => $node->attr('poster') ?: null,
             ];
         });
+
+        // Extract <iframe> tags for YouTube, Vimeo, etc.
+        $crawler->filter('iframe')->each(function (DomCrawler $node) use (&$videos) {
+            $src = $node->attr('src');
+            if (empty($src)) {
+                return;
+            }
+            if (preg_match('/(youtube\\.com|youtu\\.be|vimeo\\.com|dailymotion\\.com|player\\.vimeo\\.com)/i', $src)) {
+                $videos[] = [
+                    'type' => 'iframe',
+                    'src' => $this->makeAbsoluteUrl($src),
+                    'allowfullscreen' => $node->attr('allowfullscreen') !== null,
+                    'sandbox' => $node->attr('sandbox') ?: null,
+                ];
+            }
+        });
+
+        // Extract video URLs from the raw HTML (for sites like Canva)
+        if (isset($this->currentUrl) && !empty($this->currentUrl)) {
+            try {
+                $html = Http::get($this->currentUrl)->body();
+                // Regex for YouTube and Vimeo URLs
+                $videoUrlPatterns = [
+                    '/https?:\\/\\/(?:www\\.)?youtube\\.com\\/watch\\?v=[A-Za-z0-9_-]+/i',
+                    '/https?:\\/\\/(?:www\\.)?youtube\\.com\\/shorts\\/[A-Za-z0-9_-]+/i',
+                    '/https?:\\/\\/(?:www\\.)?youtu\\.be\\/[A-Za-z0-9_-]+/i',
+                    '/https?:\\/\\/(?:www\\.)?vimeo\\.com\\/[0-9]+/i',
+                ];
+                foreach ($videoUrlPatterns as $pattern) {
+                    if (preg_match_all($pattern, $html, $matches)) {
+                        foreach ($matches[0] as $url) {
+                            $videos[] = [
+                                'type' => 'url',
+                                'src' => $url
+                            ];
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Ignore errors in this fallback
+            }
+        }
+
+        // Remove duplicates by src
+        $videos = array_values(array_unique($videos, SORT_REGULAR));
 
         return $videos;
     }
@@ -395,11 +445,11 @@ class UniversalScraper
         if (empty($url)) {
             return $url;
         }
-        if (strpos($url, '//') === 0) {
-            return 'https:' . $url;
-        }
         if (strpos($url, 'http') === 0) {
             return $url;
+        }
+        if (strpos($url, '//') === 0) {
+            return 'https:' . $url;
         }
         if (strpos($url, '/') === 0) {
             return 'https://' . parse_url($this->currentUrl, PHP_URL_HOST) . $url;
