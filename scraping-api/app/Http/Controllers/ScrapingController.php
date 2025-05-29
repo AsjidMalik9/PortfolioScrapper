@@ -20,7 +20,12 @@ class ScrapingController extends Controller
      */
     public function index()
     {
-        //
+        $allData = ScrapedData::all();
+
+        return response()->json([
+            'message' => 'All scraped data retrieved successfully',
+            'data' => $allData
+        ]);
     }
 
     /**
