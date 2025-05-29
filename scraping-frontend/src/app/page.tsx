@@ -99,17 +99,22 @@ export default function Home() {
       {scrapeResult && (
         <section style={{ marginTop: 30, maxWidth: 700, background: '#fff', borderRadius: 12, boxShadow: '0 2px 12px #0001', padding: 24, color: '#111' }}>
           <h2 style={{ fontSize: 28, marginBottom: 8, color: '#111' }}>{scrapeResult.content?.title || 'No Title'}</h2>
-          {scrapeResult.content?.metadata?.description && (
-            <p style={{ color: '#444', fontSize: 18, marginBottom: 18 }}>{scrapeResult.content.metadata.description}</p>
-          )}
+          <p style={{ color: '#444', fontSize: 18, marginBottom: 18 }}>
+            {scrapeResult.content?.description || scrapeResult.content?.metadata?.description || ''}
+          </p>
 
           {/* Images */}
           {scrapeResult.content?.images?.length ? (
             <div style={{ marginBottom: 24 }}>
               <h3 style={{ color: '#111' }}>Images:</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {scrapeResult.content.images.map((img: string, idx: number) => (
-                  <img key={idx} src={img} alt={`img-${idx}`} style={{ width: 120, borderRadius: 8, boxShadow: '0 1px 4px #0002' }} />
+                {scrapeResult.content.images.map((img: any, idx: number) => (
+                  <img
+                    key={idx}
+                    src={typeof img === 'string' ? img : img.src}
+                    alt={typeof img === 'string' ? `img-${idx}` : img.alt || `img-${idx}`}
+                    style={{ width: 120, borderRadius: 8, boxShadow: '0 1px 4px #0002' }}
+                  />
                 ))}
               </div>
             </div>
