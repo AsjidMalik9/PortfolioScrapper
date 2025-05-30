@@ -1,0 +1,36 @@
+services:
+  scraping-api:
+    build: .
+    container_name: scraping-api
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - postgres
+  nginx:
+    image: nginx:1.25
+    container_name: scraping-nginx
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./:/var/www
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - scraping-api
+  postgres:
+    image: postgres:15
+    container_name: scraping-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: neondb
+      POSTGRES_USER: neondb_owner
+      POSTGRES_PASSWORD: npg_SAjBDgb6pkH7
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
