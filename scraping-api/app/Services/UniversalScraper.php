@@ -112,47 +112,61 @@ class UniversalScraper
             $metadata = $this->extractMetadata($crawler);
             $data['metadata'] = $metadata;
             // Extract description from meta tags
-            $description = '';
-            if (isset($metadata['description']) && !empty($metadata['description'])) {
-                $description = $metadata['description'];
-            } elseif (isset($metadata['og:description']) && !empty($metadata['og:description'])) {
-                $description = $metadata['og:description'];
+           $descriptions = [];
+           if (isset($metadata['description']) && !empty($metadata['description'])) {
+            $descriptions[] = $metadata['description'];
+           }
+           if (isset($metadata['og:description']) && !empty($metadata['og:description'])) {
+             $descriptions[] = $metadata['og:description'];
+           }
+           // 2. Headings with keywords and their following paragraphs
+            $descKeywords = ['about', 'what i do', 'bio', 'summary', 'introduction', 'profile', 'description'];
+            $crawler->filter('h1, h2, h3, h4, h5, h6')->each(function (DomCrawler $node) use (&$descriptions, $descKeywords) {
+                $headingText = strtolower($node->text());
+                foreach ($descKeywords as $kw) {
+                    if (strpos($headingText, $kw) !== false) {
+                        // Get next sibling paragraphs/divs
+                        $next = $node->nextAll()->filter('p, div, span');
+                        foreach ($next as $sib) {
+                            $text = trim($sib->textContent);
+                            if (mb_strlen($text) > 40) {
+                                $descriptions[] = $text;
+                            }
+                        }
+                    }
+                }
+            });
+            // 3. Large <p> or <span> blocks (fallback) using voku/simple_html_dom if available
+            if (class_exists('voku\\helper\\SimpleHtmlDom')) {
+                $simpleHtml = \voku\helper\SimpleHtmlDom::str_get_html($html);
+                if ($simpleHtml) {
+                    foreach ($simpleHtml->find('p, span') as $node) {
+                        $text = trim($node->text()); // voku handles <br> and inline elements
+                        if (mb_strlen($text) > 40) {
+                            $descriptions[] = $text;
+                        }
+                    }
+                }
             } else {
-                // Try to find a description in the visible content
-                $descNode = $crawler->filter('[class], [id]');
-                if ($descNode->count()) {
-                    foreach ($descNode as $node) {
-                        $class = $node->getAttribute('class') ?? '';
-                        $id = $node->getAttribute('id') ?? '';
-                        $haystack = strtolower($class . ' ' . $id);
-                        if (
-                            strpos($haystack, 'description') !== false ||
-                            strpos($haystack, 'about') !== false ||
-                            strpos($haystack, 'summary') !== false
-                        ) {
-                            $text = trim($node->textContent);
-                            if (mb_strlen($text) > 40) {
-                                $description = $text;
-                                break;
-                            }
+                // Fallback to DomCrawler if voku/simple_html_dom is not installed
+                $crawler->filter('p, span')->each(function (DomCrawler $node) use (&$descriptions) {
+                    $domNode = $node->getNode(0);
+                    if ($domNode && $domNode->ownerDocument) {
+                        $html = $domNode->ownerDocument->saveHTML($domNode);
+                        $text = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $html));
+                        $text = trim($text);
+                        if (mb_strlen($text) > 40) {
+                            $descriptions[] = $text;
                         }
                     }
-                }
-                // Fallback: first large <p> or <span>
-                if (empty($description)) {
-                    $firstPara = $crawler->filter('p, span');
-                    if ($firstPara->count()) {
-                        foreach ($firstPara as $node) {
-                            $text = trim($node->textContent);
-                            if (mb_strlen($text) > 40) {
-                                $description = $text;
-                                break;
-                            }
-                        }
-                    }
-                }
+                });
             }
+            // Remove duplicates and empty
+            $descriptions = array_values(array_unique(array_filter($descriptions)));
+            // Set main description as the first found, or empty string
+            $description = $descriptions[0] ?? '';
             $data['description'] = $description;
+            $data['descriptions'] = $descriptions;
 
             $data['content'] = $this->extractContent($crawler);
             if (!empty($jsonContents)) {
@@ -399,8 +413,15 @@ class UniversalScraper
                 foreach ($domains as $domain) {
                     if (stripos($href, $domain) !== false) {
                         // Filter for Facebook and YouTube
-                        if ($platform === 'facebook' && !preg_match($validFacebookPattern, $href)) {
-                            continue 2;
+                        if ($platform === 'facebook') {
+                            // If it's a profile.php link, ensure we extract the id
+                            if (preg_match('/facebook\\.com\\/profile\\.php(\?id=\d+)/i', $href, $match)) {
+                                $links['social'][$platform][] = 'https://facebook.com/profile.php' . $match[1];
+                                $isSocial = true;
+                                break 2;
+                            } elseif (!preg_match($validFacebookPattern, $href)) {
+                                continue 2;
+                            }
                         }
                         if ($platform === 'youtube' && !preg_match($validYouTubePattern, $href)) {
                             continue 2;
@@ -506,65 +527,43 @@ class UniversalScraper
     protected function extractSocialHandlesFromText(DomCrawler $crawler): array
     {
         $platformPatterns = [
-            'twitter' => '/(?<![\w.])@([A-Za-z0-9_]{1,15})\b/',
+            'twitter'   => '/(?<![\w.])@([A-Za-z0-9_]{1,15})\b/',
             'instagram' => '/(?<![\w.])@([A-Za-z0-9_.]{1,30})\b/',
-            'facebook' => '/facebook\\.com\\/([A-Za-z0-9.]+)/',
-            'linkedin' => '/linkedin\\.com\\/in\\/([A-Za-z0-9-]+)/',
-            'youtube' => '/youtube\\.com\\/([A-Za-z0-9_\-]+)/',
-            'github' => '/github\\.com\\/([A-Za-z0-9_-]+)/',
-            'behance' => '/behance\\.net\\/([A-Za-z0-9_-]+)/',
-            'dribbble' => '/dribbble\\.com\\/([A-Za-z0-9_-]+)/',
+            'facebook'  => '/facebook\.com\/([A-Za-z0-9.]+)/',
+            'linkedin'  => '/linkedin\.com\/in\/([A-Za-z0-9\-]+)/',
         ];
-        $platformUrlTemplates = [
-            'twitter' => 'https://twitter.com/{handle}',
-            'instagram' => 'https://instagram.com/{handle}',
-        ];
+
         $handles = [];
-        $bodyText = '';
-        if ($crawler->filter('body')->count()) {
-            $bodyText = $crawler->filter('body')->text();
-        }
-        $emailDomains = ['gmail', 'gmail.com', 'yahoo', 'yahoo.com', 'hotmail', 'hotmail.com', 'outlook', 'outlook.com', 'protonmail', 'protonmail.com'];
-        // Patterns for valid Facebook and YouTube profile/channel URLs
-        $validFacebookPattern = '/facebook\.com\/(?:[A-Za-z0-9.\-_]+|profile\.php\?id=\d+(&[A-Za-z0-9_=&]*)?)/i';
-        $validYouTubePattern = '/youtube\.com\/(channel|user|@)[A-Za-z0-9_\-]+/i';
-        foreach ($platformPatterns as $platform => $pattern) {
-            if (preg_match_all($pattern, $bodyText, $matches)) {
-                foreach ($matches[0] as $i => $match) {
-                    if (in_array($platform, ['twitter', 'instagram'])) {
-                        $handle = $matches[1][$i];
-                        if (in_array(strtolower($handle), $emailDomains)) continue;
-                        if ($platform === 'twitter' && strpos($handle, '.') !== false) continue;
-                        $url = str_replace('{handle}', $handle, $platformUrlTemplates[$platform]);
-                        $handles[$platform][] = $url;
-                    } elseif ($platform === 'facebook') {
-                        if (!preg_match($validFacebookPattern, $match)) continue;
-                        $url = $match;
-                        if (strpos($url, 'http') !== 0) {
-                            $url = 'https://' . $url;
-                        }
-                        $handles[$platform][] = $url;
-                    } elseif ($platform === 'youtube') {
-                        if (!preg_match($validYouTubePattern, $match)) continue;
-                        $url = $match;
-                        if (strpos($url, 'http') !== 0) {
-                            $url = 'https://' . $url;
-                        }
-                        $handles[$platform][] = $url;
-                    } else {
-                        $url = $match;
-                        if (strpos($url, 'http') !== 0) {
-                            $url = 'https://' . $url;
-                        }
-                        $handles[$platform][] = $url;
+        $crawler->filter('body')->each(function (DomCrawler $node) use (&$handles, $platformPatterns) {
+            $text = $node->text();
+            foreach ($platformPatterns as $platform => $pattern) {
+                if (preg_match_all($pattern, $text, $matches)) {
+                    foreach ($matches[1] as $handle) {
+                        $handles[$platform][] = $handle;
                     }
                 }
             }
+        });
+
+        // Clean up and deduplicate handles
+        foreach ($handles as $platform => $usernames) {
+            $handles[$platform] = array_values(array_unique($usernames));
         }
-        // Remove duplicates
-        foreach ($handles as $platform => $vals) {
-            $handles[$platform] = array_values(array_unique($vals));
-        }
+
         return $handles;
+    }
+
+    // Add a method to extract and normalize email addresses
+    protected function extractEmails(DomCrawler $crawler): array
+    {
+        $emails = [];
+        $crawler->filter('body')->each(function (DomCrawler $node) use (&$emails) {
+            $text = $node->text();
+            preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $text, $matches);
+            foreach ($matches[0] as $email) {
+                $emails[] = strtolower(trim($email));
+            }
+        });
+        return array_values(array_unique($emails));
     }
 }
