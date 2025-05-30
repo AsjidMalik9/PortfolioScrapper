@@ -171,7 +171,67 @@ export default function Home() {
           <p style={{ fontSize: 16, color: '#555', whiteSpace: 'pre-line', marginBottom: 16 }}>
             {scrapeResult.content?.description || scrapeResult.content?.metadata?.description || 'No description found.'}
           </p>
-          {/* You can add more details here like social links, videos, images, etc., similar to your existing code */}
+
+          {/* Social Links */}
+          {scrapeResult.content?.social_links && Object.keys(scrapeResult.content.social_links).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 4 }}>Social Links:</h4>
+              <div style={{ display: 'flex', gap: 12 }}>
+                {Object.entries(scrapeResult.content.social_links).map(([platform, links]) =>
+                  (Array.isArray(links) ? links : []).map((link, idx) => (
+                    <a
+                      key={platform + idx}
+                      href={link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
+                    >
+                      {socialIcons[platform] || socialIcons.default}
+                      <span style={{ fontSize: 14 }}>{platform}</span>
+                    </a>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Videos */}
+          {scrapeResult.content?.videos?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 4 }}>Videos:</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                {scrapeResult.content.videos.map((video: any, idx: number) => (
+                  <iframe
+                    key={idx}
+                    width="300"
+                    height="170"
+                    src={`https://www.youtube.com/embed/${video.src.split('watch?v=')[1]}`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ borderRadius: 8 }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Images */}
+          {scrapeResult.content?.images?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 4 }}>Images:</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                {scrapeResult.content.images.map((img: any, idx: number) => (
+                  <img
+                    key={idx}
+                    src={img.src}
+                    alt={img.alt || 'Image'}
+                    style={{ width: 120, borderRadius: 8, boxShadow: '0 1px 5px rgba(0, 0, 0, 0.2)' }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -201,6 +261,25 @@ export default function Home() {
                 <p style={{ fontSize: 14, color: '#666', height: 60, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.content?.description || item.content?.metadata?.description || 'No description'}
                 </p>
+                {/* Social Links (summary) */}
+                {item.content?.social_links && Object.keys(item.content.social_links).length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
+                    {Object.entries(item.content.social_links).map(([platform, links]) =>
+                      (Array.isArray(links) ? links : []).map((link, idx) => (
+                        <a
+                          key={platform + idx}
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: 2, textDecoration: 'none', color: '#1976d2' }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {socialIcons[platform] || socialIcons.default}
+                        </a>
+                      ))
+                    )}
+                  </div>
+                )}
                 <p style={{ fontSize: 12, color: '#999' }}>
                   Created: {new Date(item.created_at).toLocaleString()}
                 </p>

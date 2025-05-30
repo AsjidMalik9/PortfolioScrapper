@@ -18,6 +18,7 @@ function ScrapeShowPage() {
 
         const data = await res.json();
         setScrapeData(data); // Set the entire response data
+        console.log('API response:', data);
       } catch (err) {
         setError('Failed to load data'); // Set the error message
       } finally {
@@ -41,39 +42,44 @@ function ScrapeShowPage() {
     return <p>No data available.</p>;
   }
 
-  const { content, images, videos, social_links } = scrapeData.content || {};
+  const { content } = scrapeData || {};
+  const { images, videos, title, description, social_links } = content || {};
 
   return (
     <main style={{ padding: '2rem', color: '#111', background: '#fff', minHeight: '100vh', maxWidth: 900, margin: 'auto' }}>
       <h1 style={{ fontSize: 36, marginBottom: 16, color: '#1976d2' }}>
-        {content?.title || 'No Title'}
+        {title || 'No Title'}
       </h1>
       <p style={{ fontSize: 16, color: '#555', whiteSpace: 'pre-line', marginBottom: 16 }}>
-        {content?.description || 'No description available.'}
+        {description || 'No description available.'}
       </p>
 
       {/* Render sections from scrapeData */}
       <div>
         <h3>Content Sections</h3>
-        {content?.content?.map((item: any, idx: number) => (
+        {content?.content?.length ? content.content.map((item: any, idx: number) => (
           <div key={idx}>
             <strong>{item.type}</strong>: {item.text}
           </div>
-        ))}
+        )) : <p>No content sections available.</p>}
       </div>
 
-      {/* Render social links */}
+      {/* Render social links (object) */}
       <div>
         <h3>Social Links</h3>
-        {social_links && social_links.length > 0 ? (
+        {social_links && Object.keys(social_links).length > 0 ? (
           <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-            {social_links.map((link: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined, i: React.Key | null | undefined) => (
-              <li key={i}>
-                <a href={link as string} target="_blank" rel="noopener noreferrer">
-                  {link}
-                </a>
-              </li>
-            ))}
+            {Object.entries(social_links).map(([platform, links]) =>
+              Array.isArray(links)
+                ? links.map((link, idx) => (
+                    <li key={platform + idx}>
+                      <a href={link} target="_blank" rel="noopener noreferrer">
+                        {platform}: {link}
+                      </a>
+                    </li>
+                  ))
+                : null
+            )}
           </ul>
         ) : (
           <p>No social links available.</p>
