@@ -232,6 +232,22 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* All Descriptions (if available) */}
+          {scrapeResult.content?.descriptions && scrapeResult.content.descriptions.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 4 }}>All Descriptions:</h4>
+              <ul style={{ paddingLeft: 18 }}>
+                {scrapeResult.content.descriptions.map((desc: string, idx: number) => (
+                  <li key={idx} style={{ marginBottom: 6, color: '#444', fontSize: 15 }}>{desc}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {/* Fallback if no descriptions */}
+          {(!scrapeResult.content?.descriptions || scrapeResult.content.descriptions.length === 0) && (
+            <p style={{ color: '#888' }}>No additional descriptions found.</p>
+          )}
         </section>
       )}
 
