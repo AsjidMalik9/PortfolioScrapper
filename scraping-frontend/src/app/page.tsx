@@ -26,6 +26,36 @@ function getSocialPlatform(url: string) {
   return 'default';
 }
 
+function getYouTubeEmbedUrl(url: string) {
+  try {
+    if (!url) return '';
+    // youtu.be short links
+    if (url.includes('youtu.be/')) {
+      const id = url.split('youtu.be/')[1].split(/[?&]/)[0];
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    // youtube.com/embed/ links
+    if (url.includes('/embed/')) {
+      return url;
+    }
+    // youtube.com/watch?v= links
+    if (url.includes('youtube.com/watch')) {
+      const params = new URL(url).searchParams;
+      const id = params.get('v');
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    // youtube.com/shorts/ links
+    if (url.includes('youtube.com/shorts/')) {
+      const id = url.split('youtube.com/shorts/')[1].split(/[?&]/)[0];
+      return `https://www.youtube.com/embed/${id}`;
+    }
+    // fallback
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export default function Home() {
   const router = useRouter();
 
@@ -91,48 +121,7 @@ export default function Home() {
     <main style={{ padding: '2rem', color: '#111', background: '#fff', minHeight: '100vh', maxWidth: 900, margin: 'auto' }}>
       <h1 style={{ fontSize: 36, marginBottom: 16, color: '#1976d2' }}>URL Scraper</h1>
 
-      {/* Form to submit URL to scrape */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
-        <input
-          type="url"
-          placeholder="Enter URL to scrape"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          style={{
-            width: 400,
-            padding: '0.6rem 1rem',
-            borderRadius: 8,
-            border: '1px solid #ccc',
-            fontSize: 16,
-            outline: 'none',
-            transition: 'border-color 0.3s',
-          }}
-          required
-        />
-        <button
-          type="submit"
-          disabled={loadingScrape}
-          style={{
-            marginLeft: 12,
-            padding: '0.6rem 1.5rem',
-            borderRadius: 8,
-            border: 'none',
-            backgroundColor: '#1976d2',
-            color: '#fff',
-            fontWeight: 'bold',
-            cursor: loadingScrape ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.3s',
-          }}
-          onMouseEnter={e => !loadingScrape && (e.currentTarget.style.backgroundColor = '#145a9d')}
-          onMouseLeave={e => !loadingScrape && (e.currentTarget.style.backgroundColor = '#1976d2')}
-        >
-          {loadingScrape ? 'Scraping...' : 'Scrape'}
-        </button>
-      </form>
-
-      {error && <p style={{ color: 'red', fontWeight: 'bold' }}>{error}</p>}
-
-      {/* Button to load all stored scraped data */}
+      {/* Show All Scraped Data Button and Section at the top */}
       <button
         onClick={fetchStoredScrapes}
         disabled={loadingStored}
@@ -141,119 +130,21 @@ export default function Home() {
           padding: '0.6rem 1.5rem',
           borderRadius: 8,
           border: 'none',
-          backgroundColor: '#4caf50',
+          backgroundColor: '#1976d2',
           color: '#fff',
           fontWeight: 'bold',
           cursor: loadingStored ? 'not-allowed' : 'pointer',
           transition: 'background-color 0.3s',
+          fontSize: 18,
         }}
-        onMouseEnter={e => !loadingStored && (e.currentTarget.style.backgroundColor = '#357a38')}
-        onMouseLeave={e => !loadingStored && (e.currentTarget.style.backgroundColor = '#4caf50')}
+        onMouseEnter={e => !loadingStored && (e.currentTarget.style.backgroundColor = '#145a9d')}
+        onMouseLeave={e => !loadingStored && (e.currentTarget.style.backgroundColor = '#1976d2')}
       >
-        {loadingStored ? 'Loading Scraped Data...' : 'Show All Scraped Data'}
+        {loadingStored ? 'Loading All Scraped Data...' : 'Show All Scraped Data'}
       </button>
 
-      {/* Display scraped result from form */}
-      {scrapeResult && (
-        <section
-          style={{
-            background: '#fefefe',
-            borderRadius: 16,
-            boxShadow: '0 10px 24px rgba(0,0,0,0.1)',
-            padding: 24,
-            color: '#222',
-            marginBottom: 32,
-          }}
-        >
-          <h2 style={{ fontSize: 28, marginBottom: 8, fontWeight: '700' }}>
-            {scrapeResult.content?.title || 'No Title'}
-          </h2>
-          <p style={{ fontSize: 16, color: '#555', whiteSpace: 'pre-line', marginBottom: 16 }}>
-            {scrapeResult.content?.description || scrapeResult.content?.metadata?.description || 'No description found.'}
-          </p>
-
-          {/* Social Links */}
-          {scrapeResult.content?.social_links && Object.keys(scrapeResult.content.social_links).length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h4 style={{ marginBottom: 4 }}>Social Links:</h4>
-              <div style={{ display: 'flex', gap: 12 }}>
-                {Object.entries(scrapeResult.content.social_links).map(([platform, links]) =>
-                  (Array.isArray(links) ? links : []).map((link, idx) => (
-                    <a
-                      key={platform + idx}
-                      href={link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
-                    >
-                      {socialIcons[platform] || socialIcons.default}
-                      <span style={{ fontSize: 14 }}>{platform}</span>
-                    </a>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Videos */}
-          {scrapeResult.content?.videos?.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h4 style={{ marginBottom: 4 }}>Videos:</h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                {scrapeResult.content.videos.map((video: any, idx: number) => (
-                  <iframe
-                    key={idx}
-                    width="300"
-                    height="170"
-                    src={`https://www.youtube.com/embed/${video.src.split('watch?v=')[1]}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    style={{ borderRadius: 8 }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Images */}
-          {scrapeResult.content?.images?.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h4 style={{ marginBottom: 4 }}>Images:</h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                {scrapeResult.content.images.map((img: any, idx: number) => (
-                  <img
-                    key={idx}
-                    src={img.src}
-                    alt={img.alt || 'Image'}
-                    style={{ width: 120, borderRadius: 8, boxShadow: '0 1px 5px rgba(0, 0, 0, 0.2)' }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* All Descriptions (if available) */}
-          {scrapeResult.content?.descriptions && scrapeResult.content.descriptions.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <h4 style={{ marginBottom: 4 }}>All Descriptions:</h4>
-              <ul style={{ paddingLeft: 18 }}>
-                {scrapeResult.content.descriptions.map((desc: string, idx: number) => (
-                  <li key={idx} style={{ marginBottom: 6, color: '#444', fontSize: 15 }}>{desc}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {/* Fallback if no descriptions */}
-          {(!scrapeResult.content?.descriptions || scrapeResult.content.descriptions.length === 0) && (
-            <p style={{ color: '#888' }}>No additional descriptions found.</p>
-          )}
-        </section>
-      )}
-
-      {/* List of all stored scraped data as cards */}
       {storedScrapes.length > 0 && (
-        <section>
+        <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 28, marginBottom: 16, color: '#1976d2' }}>All Scraped Records</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 20 }}>
             {storedScrapes.map((item) => (
@@ -302,6 +193,187 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Form to submit URL to scrape */}
+      <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <input
+          type="url"
+          placeholder="Enter URL to scrape"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          style={{
+            width: 400,
+            padding: '0.6rem 1rem',
+            borderRadius: 8,
+            border: '1px solid #ccc',
+            fontSize: 16,
+            outline: 'none',
+            transition: 'border-color 0.3s',
+          }}
+          required
+        />
+        <button
+          type="submit"
+          disabled={loadingScrape}
+          style={{
+            marginLeft: 12,
+            padding: '0.6rem 1.5rem',
+            borderRadius: 8,
+            border: 'none',
+            backgroundColor: '#1976d2',
+            color: '#fff',
+            fontWeight: 'bold',
+            cursor: loadingScrape ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.3s',
+          }}
+          onMouseEnter={e => !loadingScrape && (e.currentTarget.style.backgroundColor = '#145a9d')}
+          onMouseLeave={e => !loadingScrape && (e.currentTarget.style.backgroundColor = '#1976d2')}
+        >
+          {loadingScrape ? 'Scraping...' : 'Scrape'}
+        </button>
+      </form>
+
+      {error && <p style={{ color: 'red', fontWeight: 'bold' }}>{error}</p>}
+
+      {/* Display scraped result from form */}
+      {scrapeResult && (
+        <section
+          style={{
+            background: '#fefefe',
+            borderRadius: 16,
+            boxShadow: '0 10px 24px rgba(0,0,0,0.1)',
+            padding: 24,
+            color: '#222',
+            marginBottom: 32,
+          }}
+        >
+          {/* BASIC INFO SECTION */}
+          <h2 style={{ fontSize: 24, marginBottom: 12, fontWeight: '700', color: '#1976d2' }}>Basic Info</h2>
+          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginBottom: 20 }}>
+            {/* Main Image */}
+            {scrapeResult.content?.main_image && (
+              <img
+                src={scrapeResult.content.main_image}
+                alt="Main"
+                style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12, boxShadow: '0 1px 8px rgba(0,0,0,0.12)' }}
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: 22, margin: 0 }}>{scrapeResult.content?.title || 'No Name'}</h3>
+              <p style={{ fontSize: 16, color: '#555', margin: '8px 0 12px 0', whiteSpace: 'pre-line' }}>
+                {scrapeResult.content?.headline || scrapeResult.content?.description || scrapeResult.content?.metadata?.description || 'No headline/description found.'}
+              </p>
+            </div>
+          </div>
+
+          {/* LINKS SECTION (Social, Contact, Other) */}
+          <div style={{ marginBottom: 24 }}>
+            <h4 style={{ fontWeight: 600, marginBottom: 8 }}>Links</h4>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              {/* Social Links */}
+              {scrapeResult.content?.social_links && Object.keys(scrapeResult.content.social_links).length > 0 &&
+                Object.entries(scrapeResult.content.social_links).map(([platform, links]) =>
+                  (Array.isArray(links) ? links : []).map((link, idx) => (
+                    <a
+                      key={platform + idx}
+                      href={link.startsWith('http') ? link : `https://www.${platform}.com/${link}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
+                    >
+                      {socialIcons[platform] || socialIcons.default}
+                      <span style={{ fontSize: 14 }}>{platform}</span>
+                    </a>
+                  ))
+                )}
+              {/* Contact Links */}
+              {scrapeResult.content?.links?.contact && scrapeResult.content.links.contact.length > 0 &&
+                scrapeResult.content.links.contact.map((link: string, idx: number) => (
+                  <a key={"contact" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Contact</a>
+                ))}
+              {/* Other Links */}
+              {scrapeResult.content?.links?.other && scrapeResult.content.links.other.length > 0 &&
+                scrapeResult.content.links.other.map((link: string, idx: number) => (
+                  <a key={"other" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Other</a>
+                ))}
+            </div>
+          </div>
+
+          {/* VIDEOS SECTION (all videos, regardless of employer/client) */}
+          <h2 style={{ fontSize: 22, marginBottom: 10, fontWeight: '700', color: '#1976d2' }}>Employers / Clients</h2>
+          {scrapeResult.content?.videos && scrapeResult.content.videos.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
+              {scrapeResult.content.videos.map((video: any, vIdx: number) => {
+                let src = '';
+                let isEmbeddable = false;
+                if (video.src) {
+                  if (video.src.includes('youtube.com') || video.src.includes('youtu.be')) {
+                    src = getYouTubeEmbedUrl(video.src);
+                    isEmbeddable = true;
+                  } else if (video.src.includes('vimeo.com')) {
+                    // Vimeo embed
+                    const match = video.src.match(/vimeo.com\/(\d+)/);
+                    if (match) {
+                      src = `https://player.vimeo.com/video/${match[1]}`;
+                      isEmbeddable = true;
+                    }
+                  } else {
+                    src = video.src;
+                  }
+                }
+                if (!src) return null;
+                return (
+                  <div key={vIdx} style={{ width: 220, minHeight: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    {isEmbeddable ? (
+                      <iframe
+                        width="200"
+                        height="120"
+                        src={src}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ borderRadius: 8 }}
+                      />
+                    ) : (
+                      <a
+                        href={src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'inline-block',
+                          padding: '10px 18px',
+                          background: '#1976d2',
+                          color: '#fff',
+                          borderRadius: 8,
+                          textDecoration: 'none',
+                          fontWeight: 500,
+                          marginTop: 20,
+                        }}
+                      >
+                        View Video
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ color: '#888', fontSize: 15, margin: '8px 0 18px 0' }}>No videos found.</div>
+          )}
+
+          {/* ALL DESCRIPTIONS SECTION */}
+          <h2 style={{ fontSize: 22, marginBottom: 10, fontWeight: '700', color: '#1976d2' }}>All Descriptions</h2>
+          {scrapeResult.content?.descriptions && scrapeResult.content.descriptions.length > 0 ? (
+            <ul style={{ paddingLeft: 18 }}>
+              {scrapeResult.content.descriptions.map((desc: string, idx: number) => (
+                <li key={idx} style={{ marginBottom: 6, color: '#444', fontSize: 15 }}>{desc}</li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ color: '#888' }}>No descriptions found.</p>
+          )}
         </section>
       )}
     </main>
