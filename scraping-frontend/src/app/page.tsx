@@ -278,7 +278,15 @@ export default function Home() {
                   (Array.isArray(links) ? links : []).map((link, idx) => (
                     <a
                       key={platform + idx}
-                      href={link.startsWith('http') ? link : `https://www.${platform}.com/${link}`}
+                      href={
+                        platform === 'linkedin'
+                          ? link.startsWith('http')
+                            ? link.replace(/(linkedin\.com)(?!\/in\/|\/company\/)/, 'linkedin.com/in')
+                            : `https://www.linkedin.com/in/${link.replace(/^\/*/, '')}`
+                          : link.startsWith('http')
+                            ? link
+                            : `https://www.${platform}.com/${link}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
