@@ -119,7 +119,7 @@ export default function Home() {
 
   return (
     <main style={{ padding: '2rem', color: '#111', background: '#fff', minHeight: '100vh', maxWidth: 900, margin: 'auto' }}>
-      <h1 style={{ fontSize: 36, marginBottom: 16, color: '#1976d2' }}>URL Scraper</h1>
+      <h1 style={{ fontSize: 36, marginBottom: 16, color: '#1976d2' }}>Portfolio Scraper</h1>
 
       {/* Show All Scraped Data Button and Section at the top */}
       <button
