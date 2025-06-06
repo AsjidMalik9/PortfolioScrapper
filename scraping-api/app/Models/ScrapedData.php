@@ -11,11 +11,32 @@ class ScrapedData extends Model
 
     protected $fillable = [
         'url',
-        'content',
+        'platform',
         'status'
     ];
 
-    protected $casts = [
-        'content' => 'array'
-    ];
+    public function contentDetail()
+    {
+        return $this->hasOne(ContentDetail::class);
+    }
+
+    public function videos()
+    {
+        return $this->hasMany(Video::class);
+    }
+
+    public function images()
+    {
+        return $this->hasMany(Image::class);
+    }
+
+    public function socialLinks()
+    {
+        return $this->hasMany(SocialLink::class);
+    }
+
+    public function contactInfos()
+    {
+        return $this->hasMany(ContactInfo::class);
+    }
 }

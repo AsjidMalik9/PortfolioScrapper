@@ -298,8 +298,7 @@ class UniversalScraper
         $crawler->filter('img')->each(function (DomCrawler $node) use (&$images) {
             $images[] = [
                 'src' => $this->makeAbsoluteUrl($node->attr('src')),
-                'alt' => $node->attr('alt'),
-                'title' => $node->attr('title')
+                'alt_text' => $node->attr('alt')
             ];
         });
         return $images;

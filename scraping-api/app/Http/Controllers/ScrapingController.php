@@ -20,7 +20,7 @@ class ScrapingController extends Controller
      */
     public function index()
     {
-        $allData = ScrapedData::all();
+        $allData = ScrapedData::with(['contentDetail', 'videos', 'images', 'socialLinks', 'contactInfos'])->get();
 
         return response()->json([
             'message' => 'All scraped data retrieved successfully',
@@ -68,10 +68,11 @@ class ScrapingController extends Controller
 
         try {
             $result = $this->scraper->scrape($request->url);
-            
+            // Always reload with all relations for API response
+            $scrapedData = ScrapedData::with(['contentDetail', 'videos', 'images', 'socialLinks', 'contactInfos'])->find($result->id);
             return response()->json([
                 'message' => 'Scraping completed successfully',
-                'data' => $result
+                'data' => $scrapedData
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -83,7 +84,10 @@ class ScrapingController extends Controller
 
     public function status($id)
     {
-        $scrapedData = ScrapedData::findOrFail($id);
-        return response()->json($scrapedData);
+        $scrapedData = ScrapedData::with(['contentDetail', 'videos', 'images', 'socialLinks', 'contactInfos'])->findOrFail($id);
+        return response()->json([
+            'message' => 'Scraped data retrieved successfully',
+            'data' => $scrapedData
+        ]);
     }
 }

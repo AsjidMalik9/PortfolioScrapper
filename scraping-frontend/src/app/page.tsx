@@ -29,27 +29,20 @@ function getSocialPlatform(url: string) {
 function getYouTubeEmbedUrl(url: string) {
   try {
     if (!url) return '';
-    // youtu.be short links
     if (url.includes('youtu.be/')) {
       const id = url.split('youtu.be/')[1].split(/[?&]/)[0];
       return `https://www.youtube.com/embed/${id}`;
     }
-    // youtube.com/embed/ links
-    if (url.includes('/embed/')) {
-      return url;
-    }
-    // youtube.com/watch?v= links
+    if (url.includes('/embed/')) return url;
     if (url.includes('youtube.com/watch')) {
       const params = new URL(url).searchParams;
       const id = params.get('v');
       if (id) return `https://www.youtube.com/embed/${id}`;
     }
-    // youtube.com/shorts/ links
     if (url.includes('youtube.com/shorts/')) {
       const id = url.split('youtube.com/shorts/')[1].split(/[?&]/)[0];
       return `https://www.youtube.com/embed/${id}`;
     }
-    // fallback
     return url;
   } catch {
     return url;
@@ -58,7 +51,6 @@ function getYouTubeEmbedUrl(url: string) {
 
 export default function Home() {
   const router = useRouter();
-
   const [url, setUrl] = useState('');
   const [scrapeResult, setScrapeResult] = useState<any>(null);
   const [storedScrapes, setStoredScrapes] = useState<any[]>([]);
@@ -66,13 +58,11 @@ export default function Home() {
   const [loadingStored, setLoadingStored] = useState(false);
   const [error, setError] = useState('');
 
-  // Scrape URL submit handler (existing)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoadingScrape(true);
     setError('');
     setScrapeResult(null);
-
     try {
       const res = await fetch('http://127.0.0.1:8000/api/scrape', {
         method: 'POST',
@@ -80,9 +70,20 @@ export default function Home() {
         body: JSON.stringify({ url }),
       });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
       const data = await res.json();
-      setScrapeResult(data.data);
+      const normalized = data.data;
+      setScrapeResult({
+        content: {
+          title: normalized.content_detail?.title,
+          description: normalized.content_detail?.description,
+          metadata: normalized.content_detail?.metadata,
+        },
+        videos: normalized.videos || [],
+        images: normalized.images || [],
+        social_links: normalized.social_links || [],
+        contact_infos: normalized.contact_infos || [],
+        created_at: normalized.created_at,
+      });
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -90,7 +91,6 @@ export default function Home() {
     }
   };
 
-  // Fetch all stored scraped records from API
   const fetchStoredScrapes = async () => {
     setLoadingStored(true);
     setError('');
@@ -98,12 +98,10 @@ export default function Home() {
       const res = await fetch('http://127.0.0.1:8000/api/scraped-data');
       if (!res.ok) throw new Error(`Failed to fetch stored data: ${res.status}`);
       const responseData = await res.json();
-      const dataArray = responseData.data;  // <-- This is your array
-
+      const dataArray = responseData.data;
       const sorted = dataArray.sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-
       setStoredScrapes(sorted);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch stored data');
@@ -112,7 +110,6 @@ export default function Home() {
     }
   };
 
-  // Navigate to show page on card click
   const handleCardClick = (id: number) => {
     router.push(`/scrape/${id}`);
   };
@@ -121,7 +118,6 @@ export default function Home() {
     <main style={{ padding: '2rem', color: '#111', background: '#fff', minHeight: '100vh', maxWidth: 900, margin: 'auto' }}>
       <h1 style={{ fontSize: 36, marginBottom: 16, color: '#1976d2' }}>Portfolio Scraper</h1>
 
-      {/* Show All Scraped Data Button and Section at the top */}
       <button
         onClick={fetchStoredScrapes}
         disabled={loadingStored}
@@ -163,12 +159,11 @@ export default function Home() {
                 onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)')}
               >
                 <h3 style={{ marginBottom: 8, fontWeight: '700', fontSize: 20 }}>
-                  {item.content?.title || 'No Title'}
+                  {item.content_detail?.title || 'No Title'}
                 </h3>
                 <p style={{ fontSize: 14, color: '#666', height: 60, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {item.content?.description || item.content?.metadata?.description || 'No description'}
+                  {item.content_detail?.description || item.content_detail?.metadata?.description || 'No description'}
                 </p>
-                {/* Social Links (summary) */}
                 {item.content?.social_links && Object.keys(item.content.social_links).length > 0 && (
                   <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
                     {Object.entries(item.content.social_links).map(([platform, links]) =>
@@ -196,7 +191,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* Form to submit URL to scrape */}
       <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
         <input
           type="url"
@@ -236,154 +230,6 @@ export default function Home() {
       </form>
 
       {error && <p style={{ color: 'red', fontWeight: 'bold' }}>{error}</p>}
-
-      {/* Display scraped result from form */}
-      {scrapeResult && (
-        <section
-          style={{
-            background: '#fefefe',
-            borderRadius: 16,
-            boxShadow: '0 10px 24px rgba(0,0,0,0.1)',
-            padding: 24,
-            color: '#222',
-            marginBottom: 32,
-          }}
-        >
-          {/* BASIC INFO SECTION */}
-          <h2 style={{ fontSize: 24, marginBottom: 12, fontWeight: '700', color: '#1976d2' }}>Basic Info</h2>
-          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', marginBottom: 20 }}>
-            {/* Main Image */}
-            {scrapeResult.content?.main_image && (
-              <img
-                src={scrapeResult.content.main_image}
-                alt="Main"
-                style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 12, boxShadow: '0 1px 8px rgba(0,0,0,0.12)' }}
-              />
-            )}
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: 22, margin: 0 }}>{scrapeResult.content?.title || 'No Name'}</h3>
-              <p style={{ fontSize: 16, color: '#555', margin: '8px 0 12px 0', whiteSpace: 'pre-line' }}>
-                {scrapeResult.content?.headline || scrapeResult.content?.description || scrapeResult.content?.metadata?.description || 'No headline/description found.'}
-              </p>
-            </div>
-          </div>
-
-          {/* LINKS SECTION (Social, Contact, Other) */}
-          <div style={{ marginBottom: 24 }}>
-            <h4 style={{ fontWeight: 600, marginBottom: 8 }}>Links</h4>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Social Links */}
-              {scrapeResult.content?.social_links && Object.keys(scrapeResult.content.social_links).length > 0 &&
-                Object.entries(scrapeResult.content.social_links).map(([platform, links]) =>
-                  (Array.isArray(links) ? links : []).map((link, idx) => (
-                    <a
-                      key={platform + idx}
-                      href={
-                        platform === 'linkedin'
-                          ? link.startsWith('http')
-                            ? link.replace(/(linkedin\.com)(?!\/in\/|\/company\/)/, 'linkedin.com/in')
-                            : `https://www.linkedin.com/in/${link.replace(/^\/*/, '')}`
-                          : link.startsWith('http')
-                            ? link
-                            : `https://www.${platform}.com/${link}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
-                    >
-                      {socialIcons[platform] || socialIcons.default}
-                      <span style={{ fontSize: 14 }}>{platform}</span>
-                    </a>
-                  ))
-                )}
-              {/* Contact Links */}
-              {scrapeResult.content?.links?.contact && scrapeResult.content.links.contact.length > 0 &&
-                scrapeResult.content.links.contact.map((link: string, idx: number) => (
-                  <a key={"contact" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Contact</a>
-                ))}
-              {/* Other Links */}
-              {scrapeResult.content?.links?.other && scrapeResult.content.links.other.length > 0 &&
-                scrapeResult.content.links.other.map((link: string, idx: number) => (
-                  <a key={"other" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Other</a>
-                ))}
-            </div>
-          </div>
-
-          {/* VIDEOS SECTION (all videos, regardless of employer/client) */}
-          <h2 style={{ fontSize: 22, marginBottom: 10, fontWeight: '700', color: '#1976d2' }}>Employers / Clients</h2>
-          {scrapeResult.content?.videos && scrapeResult.content.videos.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-              {scrapeResult.content.videos.map((video: any, vIdx: number) => {
-                let src = '';
-                let isEmbeddable = false;
-                if (video.src) {
-                  if (video.src.includes('youtube.com') || video.src.includes('youtu.be')) {
-                    src = getYouTubeEmbedUrl(video.src);
-                    isEmbeddable = true;
-                  } else if (video.src.includes('vimeo.com')) {
-                    // Vimeo embed
-                    const match = video.src.match(/vimeo.com\/(\d+)/);
-                    if (match) {
-                      src = `https://player.vimeo.com/video/${match[1]}`;
-                      isEmbeddable = true;
-                    }
-                  } else {
-                    src = video.src;
-                  }
-                }
-                if (!src) return null;
-                return (
-                  <div key={vIdx} style={{ width: 220, minHeight: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    {isEmbeddable ? (
-                      <iframe
-                        width="200"
-                        height="120"
-                        src={src}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        style={{ borderRadius: 8 }}
-                      />
-                    ) : (
-                      <a
-                        href={src}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-block',
-                          padding: '10px 18px',
-                          background: '#1976d2',
-                          color: '#fff',
-                          borderRadius: 8,
-                          textDecoration: 'none',
-                          fontWeight: 500,
-                          marginTop: 20,
-                        }}
-                      >
-                        View Video
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ color: '#888', fontSize: 15, margin: '8px 0 18px 0' }}>No videos found.</div>
-          )}
-
-          {/* ALL DESCRIPTIONS SECTION */}
-          <h2 style={{ fontSize: 22, marginBottom: 10, fontWeight: '700', color: '#1976d2' }}>All Descriptions</h2>
-          {scrapeResult.content?.descriptions && scrapeResult.content.descriptions.length > 0 ? (
-            <ul style={{ paddingLeft: 18 }}>
-              {scrapeResult.content.descriptions.map((desc: string, idx: number) => (
-                <li key={idx} style={{ marginBottom: 6, color: '#444', fontSize: 15 }}>{desc}</li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ color: '#888' }}>No descriptions found.</p>
-          )}
-        </section>
-      )}
     </main>
   );
 }

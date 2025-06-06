@@ -11,11 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('scraped_data', function (Blueprint $table) {
+        Schema::create('images', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('scraped_data_id')->constrained('scraped_data')->onDelete('cascade');
             $table->string('url');
-            $table->string('platform')->default('canva'); // canva, behance, etc.
-            $table->string('status')->default('pending');
+            $table->string('alt_text')->nullable();
+              $table->string('type')->default('basic');
             $table->timestamps();
         });
     }
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('scraped_data');
+        Schema::dropIfExists('images');
     }
 };

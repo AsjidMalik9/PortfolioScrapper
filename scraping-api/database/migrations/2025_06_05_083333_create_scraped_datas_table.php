@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('scraped_data', function (Blueprint $table) {
+        Schema::create('scraped_datas', function (Blueprint $table) {
             $table->id();
             $table->string('url');
-            $table->string('platform')->default('canva'); // canva, behance, etc.
+            $table->string('platform');
             $table->string('status')->default('pending');
             $table->timestamps();
         });
@@ -25,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('scraped_data');
+        Schema::dropIfExists('scraped_datas');
     }
 };
