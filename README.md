@@ -1,122 +1,154 @@
-Portfolio Scraper API
+# Portfolio Scraper API
 
-This is a Laravel + Next.js project for scraping online portfolio websites (Canva, Behance, etc.). It extracts metadata, social links, videos, images, descriptions, and contact details into a structured database for viewing via a frontend UI.
+A **Laravel + Next.js** project for scraping online portfolio websites (Canva, Behance, etc.). It extracts metadata, social links, videos, images, descriptions, and contact details into a structured database for viewing via a frontend UI.
 
-Universal Scraper Engine
+---
 
-The UniversalScraper class uses Laravel HTTP and Symfony DomCrawler to extract rich content from any URL:
+## Table of Contents
+- [Features](#features)
+- [Universal Scraper Engine](#universal-scraper-engine)
+- [API Endpoints](#api-endpoints)
+- [Database Schema](#database-schema)
+- [Frontend (Next.js)](#frontend-nextjs)
+- [Sample Data Output](#sample-data-output)
+- [Setup Instructions](#setup-instructions)
 
-Title, Descriptions, Metadata from <title> and <meta> tags
+---
 
-Images from <img> tags
+## Features
+- Scrapes portfolio sites (Canva, Behance, Dribbble, etc.)
+- Extracts:
+  - Title, descriptions, metadata
+  - Images, videos
+  - Social links, contact info
+  - Content from JSON scripts and HTML
+- Stores all data in a relational database
+- RESTful API for scraping and retrieving data
+- Next.js frontend for viewing and interacting with scraped data
 
-Videos from <video>, <iframe> and raw links (e.g. YouTube, Vimeo)
+---
 
-Social Links: from anchors, JSON blocks, and @username detection
+## Universal Scraper Engine
 
-Contact Info: detects emails and social handles from text
+The `UniversalScraper` class uses Laravel HTTP and Symfony DomCrawler to extract rich content from any URL:
 
-Supports embedded <script type="application/json">, fallback regex scraping, and absolute URL correction.
+- **Title, Descriptions, Metadata** from `<title>` and `<meta>` tags
+- **Images** from `<img>` tags
+- **Videos** from `<video>`, `<iframe>`, and raw links (YouTube, Vimeo)
+- **Social Links**: from anchors, JSON blocks, and @username detection
+- **Contact Info**: detects emails and social handles from text
+- Supports embedded `<script type="application/json">`, fallback regex scraping, and absolute URL correction
 
-API Endpoints
+---
 
-Scrape New URL
+## API Endpoints
 
-POST /api/scrape
-Content-Type: application/json
+### Scrape New URL
+**POST** `/api/scrape`
+```json
 {
   "url": "https://example.my.canva.site/"
 }
+```
 
-Get All Scraped Data
+### Get All Scraped Data
+**GET** `/api/scraped-data`
 
-GET /api/scraped-data
+### Get Data by ID
+**GET** `/api/scrape/{id}`
 
-Get Data by ID
-
-GET /api/scrape/{id}
-
-Example:
-
+#### Example Usage
+```bash
 curl -s http://127.0.0.1:8000/api/scrape/2 | jq
+```
 
-Database Schema
+---
 
-erDiagram
-    ScrapedData {
-        int id
-        string url
-        string platform
-        string status
-        datetime created_at
-        datetime updated_at
-    }
+## Database Schema
 
-    ContentDetail {
-        int id
-        int scraped_data_id
-        string title
-        text description
-        json metadata
-        datetime created_at
-        datetime updated_at
-    }
+Below is the schema in table format, showing fields and relationships.
 
-    Video {
-        int id
-        int scraped_data_id
-        string type
-        string src
-        datetime created_at
-        datetime updated_at
-    }
+### ScrapedData
+| Field        | Type      | Description                |
+|--------------|-----------|----------------------------|
+| id           | int       | Primary key                |
+| url          | string    | URL scraped                |
+| platform     | string    | Platform (canva, behance)  |
+| status       | string    | Scrape status              |
+| created_at   | datetime  | Created timestamp          |
+| updated_at   | datetime  | Updated timestamp          |
 
-    Image {
-        int id
-        int scraped_data_id
-        string url
-        string alt_text
-        string type
-        datetime created_at
-        datetime updated_at
-    }
+### ContentDetail
+| Field           | Type      | Description                |
+|-----------------|-----------|----------------------------|
+| id              | int       | Primary key                |
+| scraped_data_id | int       | FK to ScrapedData          |
+| title           | string    | Page title                 |
+| description     | text      | Page description           |
+| metadata        | json      | Meta tags                  |
+| created_at      | datetime  | Created timestamp          |
+| updated_at      | datetime  | Updated timestamp          |
 
-    SocialLink {
-        int id
-        int scraped_data_id
-        string platform
-        string username
-        string url
-        enum type
-        datetime created_at
-        datetime updated_at
-    }
+### Video
+| Field           | Type      | Description                |
+|-----------------|-----------|----------------------------|
+| id              | int       | Primary key                |
+| scraped_data_id | int       | FK to ScrapedData          |
+| type            | string    | Video type (iframe/url)    |
+| src             | string    | Video source URL           |
+| created_at      | datetime  | Created timestamp          |
+| updated_at      | datetime  | Updated timestamp          |
 
-    ContactInfo {
-        int id
-        int scraped_data_id
-        string type
-        string value
-        datetime created_at
-        datetime updated_at
-    }
+### Image
+| Field           | Type      | Description                |
+|-----------------|-----------|----------------------------|
+| id              | int       | Primary key                |
+| scraped_data_id | int       | FK to ScrapedData          |
+| url             | string    | Image URL                  |
+| alt_text        | string    | Alt text                   |
+| type            | string    | Image type                 |
+| created_at      | datetime  | Created timestamp          |
+| updated_at      | datetime  | Updated timestamp          |
 
-    ScrapedData ||--o{ ContentDetail : has
-    ScrapedData ||--o{ Video : has
-    ScrapedData ||--o{ Image : has
-    ScrapedData ||--o{ SocialLink : has
-    ScrapedData ||--o{ ContactInfo : has
+### SocialLink
+| Field           | Type      | Description                |
+|-----------------|-----------|----------------------------|
+| id              | int       | Primary key                |
+| scraped_data_id | int       | FK to ScrapedData          |
+| platform        | string    | Social platform            |
+| username        | string    | Username/handle            |
+| url             | string    | Profile URL                |
+| type            | enum      | Type of social link        |
+| created_at      | datetime  | Created timestamp          |
+| updated_at      | datetime  | Updated timestamp          |
 
-Frontend (Next.js)
+### ContactInfo
+| Field           | Type      | Description                |
+|-----------------|-----------|----------------------------|
+| id              | int       | Primary key                |
+| scraped_data_id | int       | FK to ScrapedData          |
+| type            | string    | Contact type (email, etc.) |
+| value           | string    | Contact value              |
+| created_at      | datetime  | Created timestamp          |
+| updated_at      | datetime  | Updated timestamp          |
 
-/ — Home page with scrape form + all scraped cards
+#### **Relationships**
+- **ScrapedData** has many **ContentDetail**, **Video**, **Image**, **SocialLink**, **ContactInfo**
+- All related tables have a `scraped_data_id` foreign key to `ScrapedData`
 
-/scrape/[id] — Show page with videos, social links, and metadata
+---
 
-Fully dynamic UI using React state, styled inline (or replace with Tailwind/Chakra).
+## Frontend (Next.js)
 
-Sample Data Output
+- `/` — Home page with scrape form + all scraped cards
+- `/scrape/[id]` — Show page with videos, social links, and metadata
+- Fully dynamic UI using React state, styled inline (or with Tailwind/Chakra)
 
+---
+
+## Sample Data Output
+
+```json
 {
   "data": {
     "id": 2,
@@ -142,30 +174,35 @@ Sample Data Output
     ]
   }
 }
+```
 
-Setup Instructions
+---
 
-1. Clone the repository
+## Setup Instructions
 
+### 1. Clone the Repository
+```bash
 git clone <your-repo-url>
+```
 
-2. Backend (Laravel API)
-
+### 2. Backend (Laravel API)
+```bash
 cd scraping-api
 cp .env.example .env
 composer install
 php artisan key:generate
 php artisan migrate
 php artisan serve
+```
+- Make sure your `.env` is set up for your DB. If you need a working `.env`, contact the author.
+- The API will run at [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-Make sure your .env is set up for your DB. If you need a working .env, contact the author.
-
-The API will run at http://127.0.0.1:8000
-
-3. Frontend (Next.js)
-
+### 3. Frontend (Next.js)
+```bash
 cd ../scraping-frontend
 npm install
 npm run dev
+```
+- The frontend will run at [http://localhost:3000](http://localhost:3000)
 
-The frontend will run at http://localhost:3000
+---
