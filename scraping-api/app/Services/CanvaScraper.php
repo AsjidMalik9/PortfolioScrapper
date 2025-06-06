@@ -11,17 +11,28 @@ class CanvaScraper
 {
     public function scrape(string $url)
     {
-        $scrapedData = ScrapedData::create([
-            'url' => $url,
-            'platform' => 'canva',
-            'status' => 'pending'
-        ]);
+        $scrapedData = ScrapedData::where('url', $url)->first();
+        if ($scrapedData) {
+            $scrapedData->videos()->delete();
+            $scrapedData->images()->delete();
+            $scrapedData->socialLinks()->delete();
+            $scrapedData->contactInfos()->delete();
+            $scrapedData->contentDetail()?->delete();
+            $scrapedData->update([
+                'platform' => 'canva',
+                'status' => 'pending',
+            ]);
+        } else {
+            $scrapedData = ScrapedData::create([
+                'url' => $url,
+                'platform' => 'canva',
+                'status' => 'pending',
+            ]);
+        }
 
         try {
             $response = Http::get($url);
             $html = $response->body();
-            
-            // Parse the HTML
             $dom = new DOMDocument();
             @$dom->loadHTML($html);
             $xpath = new DOMXPath($dom);
@@ -35,25 +46,54 @@ class CanvaScraper
                 'text_content' => $this->extractTextContent($xpath),
             ];
 
-            // Update the record
             $scrapedData->update([
-                'content' => $data,
+                'status' => 'completed',
+            ]);
+
+            // Save content details
+            $scrapedData->contentDetail()->create([
+                'title' => $data['title'] ?? '',
+                'description' => '',
                 'metadata' => [
                     'status_code' => $response->status(),
                     'headers' => $response->headers(),
                 ],
-                'status' => 'completed'
             ]);
+
+            // Save videos
+            foreach ($data['videos'] ?? [] as $video) {
+                $scrapedData->videos()->create([
+                    'type' => $video['type'] ?? 'url',
+                    'src' => $video['src'] ?? '',
+                ]);
+            }
+
+            // Save images
+            foreach ($data['images'] ?? [] as $image) {
+                $scrapedData->images()->create([
+                    'url' => $image['src'] ?? '',
+                    'alt' => $image['alt'] ?? null,
+                    'type' => 'basic',
+                ]);
+            }
+
+            // No social/contact extraction in this simple example
 
             return $scrapedData;
         } catch (\Exception $e) {
-            $scrapedData->update([
-                'status' => 'failed',
-                'content' => [
-                    'error' => $e->getMessage()
+            $scrapedData->update(['status' => 'failed']);
+            $scrapedData->contentDetail()->updateOrCreate(
+                ['scraped_data_id' => $scrapedData->id],
+                [
+                    'title' => 'Error',
+                    'description' => $e->getMessage(),
+                    'metadata' => [
+                        'error' => $e->getMessage(),
+                        'crawled_at' => now(),
+                        'platform' => 'canva'
+                    ]
                 ]
-            ]);
-
+            );
             throw $e;
         }
     }
@@ -129,4 +169,4 @@ class CanvaScraper
         $titleNode = $xpath->query('.//h2 | .//h3', $section)->item(0);
         return $titleNode ? $titleNode->textContent : null;
     }
-} 
+}

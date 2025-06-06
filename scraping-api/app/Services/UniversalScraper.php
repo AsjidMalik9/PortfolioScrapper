@@ -16,36 +16,97 @@ class UniversalScraper
         try {
             $data = $this->crawlUrl($url);
 
-            $scrapedData = ScrapedData::updateOrCreate(
-                ['url' => $url],
-                [
+            // Find or create main scraped_data record
+            $scrapedData = ScrapedData::where('url', $url)->first();
+            if ($scrapedData) {
+                // Clean up old related data
+                $scrapedData->videos()->delete();
+                $scrapedData->images()->delete();
+                $scrapedData->socialLinks()->delete();
+                $scrapedData->contactInfos()->delete();
+                $scrapedData->contentDetail()?->delete();
+                $scrapedData->update([
                     'platform' => $this->detectPlatform($url),
-                    'content' => $data,
-                    'metadata' => [
-                        'crawled_at' => now(),
-                        'platform' => $this->detectPlatform($url)
-                    ],
-                    'status' => 'completed'
-                ]
-            );
+                    'status' => 'completed',
+                ]);
+            } else {
+                $scrapedData = ScrapedData::create([
+                    'url' => $url,
+                    'platform' => $this->detectPlatform($url),
+                    'status' => 'completed',
+                ]);
+            }
+
+            // Save content details
+            $scrapedData->contentDetail()->create([
+                'title' => $data['title'] ?? '',
+                'description' => $data['description'] ?? '',
+                'metadata' => $data['metadata'] ?? [],
+            ]);
+
+            // Save videos
+            foreach ($data['videos'] ?? [] as $video) {
+                $scrapedData->videos()->create([
+                    'type' => $video['type'] ?? 'url',
+                    'src' => $video['src'] ?? '',
+                ]);
+            }
+
+            // Save images
+            foreach ($data['images'] ?? [] as $image) {
+                $scrapedData->images()->create([
+                    'url' => $image['src'] ?? '',
+                    'alt' => $image['alt'] ?? null,
+                    'type' => $image['title'] ? 'titled' : 'basic',
+                ]);
+            }
+
+            // Save social links
+            foreach (($data['social_links'] ?? []) as $platform => $values) {
+                foreach ((array)$values as $value) {
+                    $scrapedData->socialLinks()->create([
+                        'platform' => $platform,
+                        'username' => $value,
+                        'type' => 'social',
+                    ]);
+                }
+            }
+
+            // Save contact info
+            foreach (($data['contact_info'] ?? []) as $type => $values) {
+                foreach ((array)$values as $value) {
+                    $scrapedData->contactInfos()->create([
+                        'type' => $type,
+                        'value' => $value,
+                    ]);
+                }
+            }
 
             return $scrapedData;
         } catch (\Exception $e) {
-            $scrapedData = ScrapedData::updateOrCreate(
-                ['url' => $url],
-                [
+            // On error, update status and store error in content_details
+            $scrapedData = ScrapedData::where('url', $url)->first();
+            if ($scrapedData) {
+                $scrapedData->update(['status' => 'failed']);
+            } else {
+                $scrapedData = ScrapedData::create([
+                    'url' => $url,
                     'platform' => $this->detectPlatform($url),
-                    'content' => [
-                        'error' => $e->getMessage()
-                    ],
+                    'status' => 'failed',
+                ]);
+            }
+            $scrapedData->contentDetail()->updateOrCreate(
+                ['scraped_data_id' => $scrapedData->id],
+                [
+                    'title' => 'Error',
+                    'description' => $e->getMessage(),
                     'metadata' => [
+                        'error' => $e->getMessage(),
                         'crawled_at' => now(),
                         'platform' => $this->detectPlatform($url)
-                    ],
-                    'status' => 'failed'
+                    ]
                 ]
             );
-
             throw $e;
         }
     }
