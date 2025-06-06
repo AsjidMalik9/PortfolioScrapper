@@ -82,7 +82,20 @@ export default function Home() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      setScrapeResult(data.data);
+      // Normalize the new API response structure for frontend rendering
+      const normalized = data.data;
+      setScrapeResult({
+        content: {
+          title: normalized.content_detail?.title,
+          description: normalized.content_detail?.description,
+          metadata: normalized.content_detail?.metadata,
+        },
+        videos: normalized.videos || [],
+        images: normalized.images || [],
+        social_links: normalized.social_links || [],
+        contact_infos: normalized.contact_infos || [],
+        created_at: normalized.created_at,
+      });
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -272,48 +285,45 @@ export default function Home() {
           <div style={{ marginBottom: 24 }}>
             <h4 style={{ fontWeight: 600, marginBottom: 8 }}>Links</h4>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {/* Social Links */}
-              {scrapeResult.content?.social_links && Object.keys(scrapeResult.content.social_links).length > 0 &&
-                Object.entries(scrapeResult.content.social_links).map(([platform, links]) =>
-                  (Array.isArray(links) ? links : []).map((link, idx) => (
-                    <a
-                      key={platform + idx}
-                      href={
-                        platform === 'linkedin'
-                          ? link.startsWith('http')
-                            ? link.replace(/(linkedin\.com)(?!\/in\/|\/company\/)/, 'linkedin.com/in')
-                            : `https://www.linkedin.com/in/${link.replace(/^\/*/, '')}`
-                          : link.startsWith('http')
-                            ? link
-                            : `https://www.${platform}.com/${link}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
-                    >
-                      {socialIcons[platform] || socialIcons.default}
-                      <span style={{ fontSize: 14 }}>{platform}</span>
-                    </a>
-                  ))
-                )}
-              {/* Contact Links */}
-              {scrapeResult.content?.links?.contact && scrapeResult.content.links.contact.length > 0 &&
-                scrapeResult.content.links.contact.map((link: string, idx: number) => (
-                  <a key={"contact" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Contact</a>
+              {/* Social Links (normalized array) */}
+              {scrapeResult.social_links && scrapeResult.social_links.length > 0 &&
+                scrapeResult.social_links.map((link: any, idx: number) => (
+                  <a
+                    key={link.platform + idx}
+                    href={
+                      link.url
+                        ? link.url
+                        : link.platform === 'linkedin'
+                        ? `https://www.linkedin.com/in/${link.username}`
+                        : `https://${link.platform}.com/${link.username}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', color: '#1976d2', fontWeight: 500 }}
+                  >
+                    {socialIcons[link.platform] || socialIcons.default}
+                    <span style={{ fontSize: 14 }}>{link.platform}</span>
+                  </a>
                 ))}
-              {/* Other Links */}
-              {scrapeResult.content?.links?.other && scrapeResult.content.links.other.length > 0 &&
-                scrapeResult.content.links.other.map((link: string, idx: number) => (
-                  <a key={"other" + idx} href={link} style={{ color: '#1976d2', textDecoration: 'underline', fontSize: 14 }} target="_blank" rel="noopener noreferrer">Other</a>
+              {/* Contact Infos (normalized array) */}
+              {scrapeResult.contact_infos && scrapeResult.contact_infos.length > 0 &&
+                scrapeResult.contact_infos.map((info: any, idx: number) => (
+                  <span key={info.type + idx} style={{ color: '#1976d2', fontSize: 14, marginLeft: 8 }}>
+                    {info.type === 'email' ? (
+                      <a href={`mailto:${info.value}`} style={{ color: '#1976d2', textDecoration: 'underline' }}>{info.value}</a>
+                    ) : (
+                      info.value
+                    )}
+                  </span>
                 ))}
             </div>
           </div>
 
           {/* VIDEOS SECTION (all videos, regardless of employer/client) */}
           <h2 style={{ fontSize: 22, marginBottom: 10, fontWeight: '700', color: '#1976d2' }}>Employers / Clients</h2>
-          {scrapeResult.content?.videos && scrapeResult.content.videos.length > 0 ? (
+          {scrapeResult.videos && scrapeResult.videos.length > 0 ? (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-              {scrapeResult.content.videos.map((video: any, vIdx: number) => {
+              {scrapeResult.videos.map((video: any, vIdx: number) => {
                 let src = '';
                 let isEmbeddable = false;
                 if (video.src) {
@@ -321,7 +331,6 @@ export default function Home() {
                     src = getYouTubeEmbedUrl(video.src);
                     isEmbeddable = true;
                   } else if (video.src.includes('vimeo.com')) {
-                    // Vimeo embed
                     const match = video.src.match(/vimeo.com\/(\d+)/);
                     if (match) {
                       src = `https://player.vimeo.com/video/${match[1]}`;
