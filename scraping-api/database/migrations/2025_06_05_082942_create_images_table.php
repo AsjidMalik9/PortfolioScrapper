@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('scraped_data_id')->constrained('scraped_data')->onDelete('cascade');
             $table->string('url');
             $table->string('alt_text')->nullable();
+              $table->string('type')->default('basic');
             $table->timestamps();
         });
     }
