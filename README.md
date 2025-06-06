@@ -66,75 +66,79 @@ curl -s http://127.0.0.1:8000/api/scrape/2 | jq
 
 ## Database Schema
 
-Below is the schema in table format, showing fields and relationships.
+### Entity-Relationship Diagram
 
-### ScrapedData
-| Field        | Type      | Description                |
-|--------------|-----------|----------------------------|
-| id           | int       | Primary key                |
-| url          | string    | URL scraped                |
-| platform     | string    | Platform (canva, behance)  |
-| status       | string    | Scrape status              |
-| created_at   | datetime  | Created timestamp          |
-| updated_at   | datetime  | Updated timestamp          |
+```mermaid
+erDiagram
+    ScrapedData ||--o{ ContentDetail : has
+    ScrapedData ||--o{ Video : has
+    ScrapedData ||--o{ Image : has
+    ScrapedData ||--o{ SocialLink : has
+    ScrapedData ||--o{ ContactInfo : has
 
-### ContentDetail
-| Field           | Type      | Description                |
-|-----------------|-----------|----------------------------|
-| id              | int       | Primary key                |
-| scraped_data_id | int       | FK to ScrapedData          |
-| title           | string    | Page title                 |
-| description     | text      | Page description           |
-| metadata        | json      | Meta tags                  |
-| created_at      | datetime  | Created timestamp          |
-| updated_at      | datetime  | Updated timestamp          |
+    ScrapedData {
+        int id
+        string url
+        string platform
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+    ContentDetail {
+        int id
+        int scraped_data_id
+        string title
+        text description
+        json metadata
+        datetime created_at
+        datetime updated_at
+    }
+    Video {
+        int id
+        int scraped_data_id
+        string type
+        string src
+        datetime created_at
+        datetime updated_at
+    }
+    Image {
+        int id
+        int scraped_data_id
+        string url
+        string alt_text
+        string type
+        datetime created_at
+        datetime updated_at
+    }
+    SocialLink {
+        int id
+        int scraped_data_id
+        string platform
+        string username
+        string url
+        enum type
+        datetime created_at
+        datetime updated_at
+    }
+    ContactInfo {
+        int id
+        int scraped_data_id
+        string type
+        string value
+        datetime created_at
+        datetime updated_at
+    }
+```
 
-### Video
-| Field           | Type      | Description                |
-|-----------------|-----------|----------------------------|
-| id              | int       | Primary key                |
-| scraped_data_id | int       | FK to ScrapedData          |
-| type            | string    | Video type (iframe/url)    |
-| src             | string    | Video source URL           |
-| created_at      | datetime  | Created timestamp          |
-| updated_at      | datetime  | Updated timestamp          |
+### Table Relationships
 
-### Image
-| Field           | Type      | Description                |
-|-----------------|-----------|----------------------------|
-| id              | int       | Primary key                |
-| scraped_data_id | int       | FK to ScrapedData          |
-| url             | string    | Image URL                  |
-| alt_text        | string    | Alt text                   |
-| type            | string    | Image type                 |
-| created_at      | datetime  | Created timestamp          |
-| updated_at      | datetime  | Updated timestamp          |
-
-### SocialLink
-| Field           | Type      | Description                |
-|-----------------|-----------|----------------------------|
-| id              | int       | Primary key                |
-| scraped_data_id | int       | FK to ScrapedData          |
-| platform        | string    | Social platform            |
-| username        | string    | Username/handle            |
-| url             | string    | Profile URL                |
-| type            | enum      | Type of social link        |
-| created_at      | datetime  | Created timestamp          |
-| updated_at      | datetime  | Updated timestamp          |
-
-### ContactInfo
-| Field           | Type      | Description                |
-|-----------------|-----------|----------------------------|
-| id              | int       | Primary key                |
-| scraped_data_id | int       | FK to ScrapedData          |
-| type            | string    | Contact type (email, etc.) |
-| value           | string    | Contact value              |
-| created_at      | datetime  | Created timestamp          |
-| updated_at      | datetime  | Updated timestamp          |
-
-#### **Relationships**
-- **ScrapedData** has many **ContentDetail**, **Video**, **Image**, **SocialLink**, **ContactInfo**
-- All related tables have a `scraped_data_id` foreign key to `ScrapedData`
+| Table         | Related Table   | Relationship Type | Foreign Key         |
+|---------------|-----------------|------------------|---------------------|
+| ScrapedData   | ContentDetail   | 1-to-many        | scraped_data_id     |
+| ScrapedData   | Video           | 1-to-many        | scraped_data_id     |
+| ScrapedData   | Image           | 1-to-many        | scraped_data_id     |
+| ScrapedData   | SocialLink      | 1-to-many        | scraped_data_id     |
+| ScrapedData   | ContactInfo     | 1-to-many        | scraped_data_id     |
 
 ---
 
